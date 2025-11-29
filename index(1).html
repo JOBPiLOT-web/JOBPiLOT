@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>JobPilot — Prototype</title>
+<style>
+    body { background: #222; color: #fff; }
+    .desktop-label { display:block; }
+    .mobile-label  { display:none; }
+    /* Geräte-Layoutanpassung ab ca. Handygröße (max-width 700px) */
+    @media (max-width:700px) {
+      body { background: #003366; }
+      .desktop-label { display:none; }
+      .mobile-label { display:block; font-size:1.5em; color:yellow; }
+      /* Hier weitere Layoutänderungen für Handy */
+    }
+  /* ---------- COLORS & BASE ---------- */
+  :root{
+    --bg:#000;
+    --panel:#111;
+    --muted:#777;
+    --white:#fff;
+    --accent:#ddd;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,system-ui,Arial;
+    background:var(--bg);
+    color:var(--white);
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 22px;
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    position:sticky; top:0; z-index:40;
+    backdrop-filter: blur(4px);
+  }
+  #leftHeader{
+    display:flex; align-items:center; gap:12px;
+  }
+    #logo{
+    height:62px;
+    width:auto;
+    border-radius:6px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.8);
+    object-fit:contain;
+    margin-left:12px;
+  } 
+  #searchBar{
+    width:320px; max-width:44vw;
+    padding:9px 12px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.06);
+    background:transparent; color:var(--white);
+    outline:none;
+    transition:box-shadow .18s,transform .12s;
+  }
+  #searchBar:focus{ box-shadow:0 6px 18px rgba(255,255,255,0.03); transform:translateY(-1px); }
+ 
+  /* ---------- NAV ---------- */
+  nav{ display:flex; justify-content:center; gap:6px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,0.03); }
+  nav button{
+    background:transparent; color:var(--white); border:0; padding:12px 18px; cursor:pointer; font-weight:600;
+    border-radius:8px; transition: .18s;
+  }
+  nav button:hover{ background:var(--white); color:#000; transform:translateY(-2px); }
+
+  /* ---------- LAYOUT ---------- */
+  main{ padding:22px; display:flex; gap:22px; align-items:flex-start; }
+  /* left column: content */
+  .col-left{ width:100%; max-width:980px; }
+  /* right column: controls/side */
+  .col-right{ width:360px; min-width:260px; }
+
+  /* ---------- SECTIONS ---------- */
+  section{ display:none; animation:fadeIn .26s ease both; }
+  section.active{ display:block; }
+
+  /* ---------- CARDS ---------- */
+  .company-card{
+    padding:16px; background:var(--panel); border-radius:12px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.04);
+    transition:transform .14s, box-shadow .14s;
+    position:relative;
+  }
+  .company-card:hover{ transform:translateY(-6px); box-shadow:0 18px 40px rgba(0,0,0,0.6); }
+  .company-card h4{ margin:0 36px 6px 0; }
+  .company-card p{ margin:0; color:var(--muted); font-size:14px; line-height:1.3; }
+
+  .like-btn{
+    position:absolute; right:14px; top:12px; font-size:22px; cursor:pointer; color:var(--muted);
+  }
+  .like-btn.liked{ color:var(--white); text-shadow:0 0 10px rgba(255,255,255,0.06); }
+
+  /* ---------- ADMIN PANEL ---------- */
+  #adminPanel{
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+    border-radius:12px; padding:14px; border:1px solid rgba(255,255,255,0.04);
+  }
+  .btn{
+    display:inline-block; padding:10px 12px; border-radius:8px; border:0; cursor:pointer; font-weight:700;
+    background:var(--white); color:#000;
+  }
+
+  /* ---------- FORMS ---------- */
+  label{ display:block; font-size:13px; margin-top:10px; color:var(--muted); }
+  input[type="text"], input[type="email"], textarea, select {
+    width:100%; padding:10px; background:transparent; color:var(--white); border:1px solid rgba(255,255,255,0.06);
+    border-radius:8px; margin-top:6px; outline:none; font-size:14px;
+  }
+  textarea{ min-height:100px; resize:vertical; }
+
+  /* ---------- MODAL ---------- */
+  #modalOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:80; justify-content:center; align-items:center; }
+  #modal{ width:78%; max-width:980px; padding:20px; background:var(--panel); border-radius:12px; border:1px solid rgba(255,255,255,0.04); max-height:86vh; overflow:auto; }
+
+  /* ---------- SMALL UI ---------- */
+  .muted{ color:var(--muted); font-size:13px; }
+  .tiny{ font-size:12px; color:var(--muted); }
+
+  /* ---------- VISITOR COUNTER ---------- */
+  #visitorCounter{ position:fixed; right:12px; bottom:12px; color:var(--muted); font-size:13px; z-index:90; }
+
+  /* ---------- ANIMATIONS ---------- */
+  @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+  .fade-up{ animation:fadeIn .26s ease both; }
+
+  /* responsive */
+  @media (max-width:980px){
+    #searchBar{ width:40vw; }
+    main{ flex-direction:column; padding:12px; }
+    .col-right{ width:100%; order:2; }
+    .col-left{ order:1; }
+  }
+
+
+</style>
+</head>
+<body>
+  <div class="desktop-label"></div>
+  <div class="mobile-label"></div>
+
+<header>
+  <div id="leftHeader">
+    <img id="logo" src=logo.png alt="Logo">
+    <input id="searchBar" placeholder="Firma suchen (Praktikum, Ausbildung, etc.)" />
+    <!-- Logo: lokal eingebunden (Pfad gem. Entwickleranweisung) -->
+     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px">
+    <div id="authArea">
+      <!-- Login/Registrations-Buttons werden hier dynamisch ersetzt -->
+      <button class="btn" id="showLoginBtn">Login / Register</button>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <button onclick="openTab('start')">Start</button>
+  <button onclick="openTab('ausbildung')">Ausbildung</button>
+  <button onclick="openTab('schueler')">Schülerjob</button>
+  <button onclick="openTab('ferien')">Ferienjob</button>
+  <button onclick="openTab('minijob')">Minijob</button>
+  <button onclick="openTab('praktikum')">Praktikum</button>
+  <button onclick="openTab('voting')">Voting</button>
+  <button onclick="openTab('likes')">Meine Likes</button>
+</nav>
+
+<main>
+  <div class="col-left">
+    <!-- START -->
+    <section id="start" class="active">
+      <h1></h1>
+      <p class="muted"></p>
+      <div id="listArea" style="margin-top:16px"></div>
+    </section>
+
+    <!-- PRAKTIKUM / AUSST / ... (werden befüllt dynamisch) -->
+    <section id="praktikum">
+      <h2>Praktikum</h2>
+      <div id="praktikumList"></div>
+    </section>
+
+    <section id="ausbildung">
+      <h2>Ausbildung</h2>
+      <div id="ausbildungList"></div>
+    </section>
+
+    <section id="schueler">
+      <h2>Schülerjob</h2>
+      <div id="schuelerList"></div>
+    </section>
+
+    <section id="ferien">
+      <h2>Ferienjob</h2>
+      <div id="ferienList"></div>
+    </section>
+
+    <section id="minijob">
+      <h2>Minijob</h2>
+      <div id="minijobList"></div>
+    </section>
+
+    <section id="voting">
+      <h2>Voting</h2>
+      <div id="votingArea" class="muted">Bitte einloggen, um teilnehmen zu können.</div>
+    </section>
+
+    <section id="likes">
+      <h2>Meine gelikten Firmen</h2>
+      <div id="likedList" class="muted">Bitte einloggen.</div>
+    </section>
+
+    <section id="admin">
+      <h2>Admin-Bereich</h2>
+      <!-- Firmenkarte im Adminbereich -->
+<h3>Firmen auf Karte (Admin)</h3>
+<input id="mapsearch" type="text" placeholder="Firma/Ort/Beschreibung suchen..." style="margin-bottom:13px; width:100%;">
+<div id="map" style="height:320px; width:100%; border-radius:10px; margin-bottom:10px;"></div>
+<button class="btn" onclick="startAddFirma()" id="btnAddFirma">Neue Firma auf Karte hinzufügen</button>
+<div id="addNotice" style="display:none;margin-bottom:8px;color:#FFA;">Klicken Sie zuerst einen Punkt auf der Karte.</div>
+<form id="addForm" style="display:none" onsubmit="return false;">
+  <label>Name:</label><input type="text" id="fname" required>
+  <label>Beschreibung:</label><input type="text" id="fdesc">
+  <label>Adresse/Ort:</label><input type="text" id="faddr">
+  <label>Breite (lat):</label><input type="number" step="any" id="flat">
+  <label>Länge (lng):</label><input type="number" step="any" id="flng">
+  <button class="btn" onclick="saveFirma()">Speichern</button>
+  <button onclick="cancelAdd();" style="margin-left:10px;">Abbrechen</button>
+</form>
+<div id="firmenliste"></div>
+      <div id="adminPanel" class="muted">Bitte Admin einloggen, um Inhalte zu verwalten.</div>
+    </section>
+  </div>
+
+  <aside class="col-right">
+    <!-- LOGIN BOX (Modal) -->
+    <div id="loginBoxWrap" style="display:none; margin-bottom:12px;">
+      <div style="background:var(--panel); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04);">
+        <h3 style="margin:0 0 8px 0">Einloggen / Registrieren</h3>
+        <label>Email</label>
+        <input id="emailInput" type="email" placeholder="name@domain.de" />
+        <label>Passwort</label>
+        <input id="passwordInput" type="password" placeholder="Passwort" />
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn" onclick="login()">Einloggen</button>
+          <button style="background:#333;color:#fff;border-radius:8px;padding:10px;border:0;cursor:pointer" onclick="register()">Registrieren</button>
+        </div>
+        <p class="tiny" style="margin-top:8px"></p>
+      </div>
+    </div>
+
+    <!-- ADMIN QUICK ACTIONS (visible when admin) -->
+    <div id="adminQuick" style="display:none; margin-bottom:12px;">
+      <div id="adminPanelSmall" style="background:var(--panel); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04);">
+        <strong>Admin-Tools</strong>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button class="btn" onclick="showAddCompany()">+ Firma hinzufügen</button>
+          <button onclick="showAddVoting()" style="background:#333;color:#fff;border-radius:8px;padding:10px;border:0;cursor:pointer">+ Voting</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFO BOX -->
+    <div style="background:var(--panel); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04);">
+      <h4 style="margin:0 0 6px 0">Kurzinfo</h4>
+      <p class="muted" style="margin:0 0 8px 0">Suche schnell Praktika und Jobs. Melde dich an, like Firmen und nimm an Abstimmungen teil.</p>
+      <p class="tiny"></p>
+    </div>
+  </aside>
+</main>
+
+<!-- MODAL (Firma / Admin Forms) -->
+<div id="modalOverlay" style="display:none; align-items:center; justify-content:center; position:fixed; inset:0; z-index:999;">
+  <div id="modal" style="max-width:900px;">
+    <div id="modalInner"></div>
+    <div style="text-align:right; margin-top:12px;">
+      <button onclick="closeModal()" style="background:#555;color:#fff;padding:8px 12px;border-radius:8px;border:0;cursor:pointer">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div id="visitorCounter" class="tiny"></div>
+
+<script>
+/* =========================================================
+   Constants and initial data
+   ========================================================= */
+const ADMIN_EMAIL = "admin@jobpilot.de";
+const ADMIN_PASS  = "Admin123";
+
+let currentUser = null; // {email, admin:bool}
+let companies = [];     // will store company objects
+let votings = [];       // voting polls
+// company schema:
+// { id, name, category, short, fields:{1:...,2:...,...10:...}, likes:0, createdAt }
+
+/* ---------- Helpers ---------- */
+function uid(prefix='id'){ return prefix + Math.random().toString(36).slice(2,10); }
+function saveAll(){ localStorage.setItem('jp_companies', JSON.stringify(companies)); localStorage.setItem('jp_votings', JSON.stringify(votings)); }
+function loadAll(){
+  companies = JSON.parse(localStorage.getItem('jp_companies')||'[]');
+  votings = JSON.parse(localStorage.getItem('jp_votings')||'[]');
+}
+function showToast(msg){ alert(msg); }
+
+/* ---------- initial demo data (only if empty) ---------- */
+function ensureDemo(){
+  if(!localStorage.getItem('jp_demo_initialized')){
+    companies = [
+      { id:uid('c'), name:"Beispiel GmbH", category:"praktikum", short:"Kurze Firmenbeschreibung", fields:{
+          1:"Beispiel GmbH – Rechtsform: GmbH, Gründung: 2010, Standort: Berlin",
+          2:"Geschäftsidee: B2B Software",
+          3:"Vision: Vernetzte Bildung",
+          4:"Markt: KMU",
+          5:"Wettbewerb: Andere SaaS",
+          6:"Geschäftsmodell: Abo",
+          7:"Team: 25 MA",
+          8:"Erfolge: 2019 Wachstum",
+          9:"Finanzen: Priv. Kapital",
+          10:"Zukunft: Auslandsexpansion"
+        }, likes:0, createdAt:Date.now() }
+    ];
+    votings = [
+      { id:uid('v'), title:"Soll JobPilot ein Forum bekommen?", options:[{id:uid('o'),text:"Ja",votes:3},{id:uid('o'),text:"Nein",votes:1}], createdAt:Date.now() }
+    ];
+    localStorage.setItem('jp_demo_initialized','1');
+    saveAll();
+  }
+}
+
+const listArea = document.getElementById('listArea');
+function renderAll(){
+  loadAll();
+  // render master list (all categories)
+  const catMap = {praktikum:'Praktikum', ausbildung:'Ausbildung', schueler:'Schülerjob', ferien:'Ferienjob', minijob:'Minijob'};
+  // clear category lists
+  ['praktikum','ausbildung','schueler','ferien','minijob'].forEach(id=>document.getElementById(id+'List').innerHTML='');
+  listArea.innerHTML = '';
+
+  companies.forEach(c=>{
+    const card = makeCompanyCard(c);
+    // append to category list and to overall
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(card.cloneNode(true));
+    listArea.appendChild(card);
+    // also category specific
+    const catbox = document.getElementById((c.category||'praktikum')+'List');
+    if(catbox) catbox.appendChild(makeCompanyCard(c));
+  });
+
+  // votings render
+  renderVotings();
+  // liked list
+  renderLiked();
+  // admin panel
+  renderAdmin();
+}
+
+function makeCompanyCard(c){
+  const card = document.createElement('div');
+  card.className='company-card fade-up';
+  card.style.cursor='pointer';
+  card.innerHTML = `
+    <span class="like-btn" data-name="${c.id}">${ userHasLiked(c.id) ? '♥' : '♡' }</span>
+    <h4>${c.name}</h4>
+    <p class="muted">${c.short || ''}</p>
+  `;
+  card.onclick = ()=> openCompanyModal(c.id);
+  const likeBtn = card.querySelector('.like-btn');
+  likeBtn.onclick = (ev)=>{
+    ev.stopPropagation();
+    if(!currentUser){ showLogin(); return; }
+    toggleLike(c.id);
+    renderAll();
+  };
+  return card;
+}
+
+/* ===================== FIRMA-BEWERTUNG ===================== */
+/**
+ * Hole Bewertungs-Object aus localStorage für aktuellen User: { [companyId]: Rating }
+ */
+function getMyRatings() {
+  if (!currentUser) return {};
+  return JSON.parse(localStorage.getItem('jp_ratings_' + currentUser.email) || '{}');
+}
+/**
+ * Setze oder ändere Bewertung für eine Firma
+ */
+function rateCompany(companyId, value) {
+  if (!currentUser) { showLogin(); return; }
+  let ratings = getMyRatings();
+  ratings[companyId] = value;
+  localStorage.setItem('jp_ratings_' + currentUser.email, JSON.stringify(ratings));
+  // Render aktualisieren:
+  openCompanyModal(companyId);
+  renderAll();
+}
+/**
+ * Errechne Durchschnitts-Bewertung für eine Firma (über alle User)
+ */
+function getCompanyAvgRating(companyId) {
+  let sum = 0, n = 0;
+  for (let key in localStorage) {
+    if (key.startsWith('jp_ratings_')) {
+      try {
+        const obj = JSON.parse(localStorage.getItem(key));
+        if (obj && typeof obj[companyId]!=="undefined") {
+          sum += Number(obj[companyId]);
+          n++;
+        }
+      } catch {}
+    }
+  }
+  return n ? {avg: sum / n, count: n} : {avg: 0, count: 0};
+}
+/**
+ * Generiert HTML für Bewertungssterne (interaktiv)
+ */
+function renderStarRating(companyId, userRating, avgRatingObj) {
+  let html = '<div style="margin:10px 0;">';
+  // Interaktive Sterne
+  for (let i=1; i<=5; i++) {
+    html += `<span 
+      onclick="rateCompany('${companyId}',${i})"
+      style="font-size:28px;cursor:pointer;user-select:none;color:${userRating>=i?'#fec700':'#555'};filter:drop-shadow(0 1.5px #888);"
+      title="${i} Stern${i>1?'e':''}">${userRating>=i?'★':'☆'}</span>`;
+  }
+  html += `</div>
+    <div class="tiny" style="margin-top:0.5em;color:var(--muted)">
+      Deine Bewertung: ${userRating?userRating+' / 5':'noch keine vergeben'}
+      <br>
+      Schnitt: ${avgRatingObj.count?avgRatingObj.avg.toFixed(2):'–'} ★ (${avgRatingObj.count} Bewertung${avgRatingObj.count==1?'':'en'})
+    </div>`;
+  return html;
+}
+
+/* ========== PATCH: openCompanyModal mit Bewertung ========== */
+function openCompanyModal(id) {
+  const c = companies.find(x => x.id === id);
+  if (!c) return;
+  const modalInner = document.getElementById('modalInner');
+  let html = `<h2>${c.name}</h2><p class="tiny">Kategorie: ${c.category}</p><hr/>`;
+
+  // Bild anzeigen
+  if (c.image) html += `<img src="${c.image}" style="max-width:100%;border-radius:12px;margin-bottom:12px;" />`;
+
+  // Kurze Beschreibung
+  html += `<p>${c.short||''}</p>`;
+
+  // BEWERTUNG (Sterne, Schnitt, eigene Wertung)
+  const myRatings = getMyRatings();
+  const my = myRatings[c.id] || 0;
+  const avgr = getCompanyAvgRating(c.id);
+  html += renderStarRating(c.id, my, avgr);
+
+  // Details
+  html += c.details
+    ? `<textarea style="width:100%;min-height:100px;padding:10px;background:var(--panel);color:var(--white);border-radius:8px;border:1px solid rgba(255,255,255,0.06);" readonly>${c.details}</textarea>`
+    : '';
+
+  // Admin-Buttons
+  html += `<div style="margin-top:12px; display:flex; gap:8px">
+    <button onclick="closeModal()" style="padding:10px;border-radius:8px;border:0;cursor:pointer">Schließen</button>`;
+  if(currentUser && currentUser.admin){
+    html += `<button onclick="editCompany('${c.id}')" style="padding:10px;border-radius:8px;border:0;background:#fff;color:#000;cursor:pointer">Bearbeiten</button>`;
+    html += `<button onclick="deleteCompany('${c.id}')" style="padding:10px;border-radius:8px;border:0;background:#b33;color:#fff;cursor:pointer">Löschen</button>`;
+  }
+  html += `</div>`;
+  modalInner.innerHTML = html;
+  showModal();
+}
+/* ===== ENDE DER PATCHES FÜR BEWERTUNGEN ===== */
+
+/* ---------- ADMIN: add/edit/delete companies ---------- */
+function showAddCompany(){
+  if(!currentUser || !currentUser.admin){ showToast('Nur Admins können Firmen hinzufügen.'); return; }
+  const formId = uid('form');
+  const modalInner = document.getElementById('modalInner');
+
+  let html = `<h3>Firma hinzufügen</h3>
+    <label>Firmenname</label><input id="${formId}_name" />
+    <label>Kategorie</label>
+    <select id="${formId}_category">
+      <option value="praktikum">Praktikum</option>
+      <option value="ausbildung">Ausbildung</option>
+      <option value="schueler">Schülerjob</option>
+      <option value="ferien">Ferienjob</option>
+      <option value="minijob">Minijob</option>
+    </select>
+    <label>Kurze Beschreibung</label><input id="${formId}_short" />
+    <label>Details</label><textarea id="${formId}_details" placeholder="Hier die ausführliche Beschreibung eintragen..."></textarea>
+    <label>Bild hochladen</label><input id="${formId}_image" type="file" accept="image/*" />
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button onclick="saveNewCompany('${formId}')">Speichern</button>
+      <button onclick="closeModal()" style="background:#666;color:#fff;padding:8px;border-radius:8px;border:0;">Abbrechen</button>
+    </div>`;
+  modalInner.innerHTML = html;
+  showModal();
+}
+
+function saveNewCompany(formId){
+  const name = document.getElementById(formId+'_name').value.trim();
+  if(!name){ alert('Name ist erforderlich'); return; }
+  const category = document.getElementById(formId+'_category').value;
+  const short = document.getElementById(formId+'_short').value;
+  const details = document.getElementById(formId+'_details').value;
+
+  const imgInput = document.getElementById(formId+'_image');
+  let imgSrc = '';
+  if(imgInput.files && imgInput.files[0]){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      imgSrc = e.target.result;
+      const obj = {id:uid('c'), name, category, short, details, image:imgSrc, likes:0, createdAt:Date.now()};
+      companies.push(obj);
+      saveAll();
+      closeModal(); renderAll();
+    }
+    reader.readAsDataURL(imgInput.files[0]);
+  } else {
+    const obj = {id:uid('c'), name, category, short, details, image:'', likes:0, createdAt:Date.now()};
+    companies.push(obj);
+    saveAll();
+    closeModal(); renderAll();
+  }
+}
+
+/* edit */
+function editCompany(id){
+  const c = companies.find(x=>x.id===id);
+  if(!c) return;
+  const formId = uid('ef');
+  const modalInner = document.getElementById('modalInner');
+  let html = `<h3>Firma bearbeiten</h3>
+    <label>Firmenname</label><input id="${formId}_name" value="${escapeHtml(c.name)}" />
+    <label>Kategorie</label>
+    <select id="${formId}_category">
+      <option ${c.category==='praktikum'?'selected':''} value="praktikum">Praktikum</option>
+      <option ${c.category==='ausbildung'?'selected':''} value="ausbildung">Ausbildung</option>
+      <option ${c.category==='schueler'?'selected':''} value="schueler">Schülerjob</option>
+      <option ${c.category==='ferien'?'selected':''} value="ferien">Ferienjob</option>
+      <option ${c.category==='minijob'?'selected':''} value="minijob">Minijob</option>
+    </select>
+    <label>Kurze Beschreibung</label><input id="${formId}_short" value="${escapeHtml(c.short || '')}" />
+    <label>Details</label><textarea id="${formId}_details">${escapeHtml(c.details||'')}</textarea>
+    <hr/>`;
+  html += `<div style="margin-top:12px;display:flex;gap:8px">
+    <button onclick="saveEditedCompany('${id}','${formId}')">Speichern</button>
+    <button onclick="closeModal()" style="background:#666;color:#fff;padding:8px;border-radius:8px;border:0;">Abbrechen</button>
+  </div>`;
+  modalInner.innerHTML = html;
+  showModal();
+}
+function saveEditedCompany(id, formId){
+  const c = companies.find(x=>x.id===id);
+  if(!c) return;
+  c.name = document.getElementById(formId + '_name').value;
+  c.category = document.getElementById(formId + '_category').value;
+  c.short = document.getElementById(formId + '_short').value;
+  c.details = document.getElementById(formId + '_details').value;
+  saveAll();
+  closeModal(); renderAll();
+}
+function deleteCompany(id){
+  if(!confirm('Firma wirklich löschen?')) return;
+  companies = companies.filter(x=>x.id!==id);
+  saveAll();
+  closeModal(); renderAll();
+}
+
+/* ---------- LIKES ---------- */
+function getLikes(){
+  return JSON.parse(localStorage.getItem('jp_likes_'+(currentUser?currentUser.email:'guest')) || '[]');
+}
+function userHasLiked(companyId){
+  if(!currentUser) return false;
+  const likes = JSON.parse(localStorage.getItem('jp_likes_'+currentUser.email) || '[]');
+  return likes.includes(companyId);
+}
+function toggleLike(companyId){
+  if(!currentUser){ showLogin(); return; }
+  const key = 'jp_likes_'+currentUser.email;
+  const likes = JSON.parse(localStorage.getItem(key) || '[]');
+  if(likes.includes(companyId)){
+    const idx = likes.indexOf(companyId); likes.splice(idx,1);
+  } else likes.push(companyId);
+  localStorage.setItem(key, JSON.stringify(likes));
+  renderLiked();
+}
+
+/* liked list render */
+function renderLiked(){
+  const target = document.getElementById('likedList');
+  if(!currentUser){ target.innerHTML = '<div class="muted">Bitte einloggen, um Ihre gelikten Firmen zu sehen.</div>'; return; }
+  const likes = JSON.parse(localStorage.getItem('jp_likes_'+currentUser.email) || '[]');
+  if(!likes.length){ target.innerHTML = '<div class="muted">Du hast noch keine Firmen gelikt.</div>'; return; }
+  target.innerHTML = '';
+  likes.forEach(id=>{
+    const c = companies.find(x=>x.id===id);
+    if(!c) return;
+    const div = document.createElement('div');
+    div.className='company-card';
+    div.innerHTML = `<h4>${c.name}</h4><p class="muted">${c.short||''}</p><div style="margin-top:8px"><button onclick="openCompanyModal('${c.id}')">Details</button></div>`;
+    target.appendChild(div);
+  });
+}
+
+/* ---------- VOTING: nur 1 Vote pro User ---------- */
+function vote(voteId, optId){
+  if(!currentUser){ showLogin(); return; }
+  const v = votings.find(x=>x.id===voteId);
+  if(!v) return;
+
+  // Prüfen, ob User schon abgestimmt hat
+  const voteKey = 'jp_votes_' + currentUser.email;
+  const votes = JSON.parse(localStorage.getItem(voteKey) || '{}');
+  if(votes[voteId]){
+    showToast('Du hast bereits abgestimmt!');
+    return;
+  }
+
+  const opt = v.options.find(o=>o.id===optId);
+  if(!opt) return;
+
+  opt.votes = (opt.votes||0) + 1;
+  votes[voteId] = optId; // speichert, für welche Option User gestimmt hat
+  localStorage.setItem(voteKey, JSON.stringify(votes));
+
+  saveAll();
+  renderVotings();
+}
+
+/* ---------- Voting-Render mit Button-Disable ---------- */
+function renderVotings(){
+  const area = document.getElementById('votingArea');
+  if(!votings.length){ area.innerHTML = '<div class="muted">Keine Abstimmungen vorhanden.</div>'; return; }
+
+  let html = '';
+  votings.forEach(v=>{
+    html += `<div style="background:var(--panel);padding:12px;border-radius:10px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.04)">
+      <h4 style="margin:0 0 6px 0">${v.title}</h4>
+      <div class="tiny" style="margin-bottom:8px">Erstellt: ${new Date(v.createdAt).toLocaleString()}</div>
+      <div>`;
+
+    const voteKey = currentUser ? 'jp_votes_' + currentUser.email : null;
+    const userVotes = voteKey ? JSON.parse(localStorage.getItem(voteKey)||'{}') : {};
+
+    v.options.forEach(opt=>{
+      const disabled = userVotes[v.id] ? 'disabled' : '';
+      html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <button onclick="vote('${v.id}','${opt.id}')" style="padding:6px 10px;border-radius:8px;border:0;cursor:pointer" ${disabled}>${opt.text}</button>
+        <div class="muted">${opt.votes} Stimmen</div>
+      </div>`;
+    });
+
+    html += `</div>`;
+    if(currentUser && currentUser.admin){
+      html += `<div style="margin-top:8px"><button onclick="deleteVoting('${v.id}')" style="background:#b33;color:#fff;padding:8px;border-radius:8px;border:0;cursor:pointer">Löschen</button></div>`;
+    }
+    html += `</div>`;
+  });
+  area.innerHTML = html;
+}
+
+/* admin voting */
+function showAddVoting(){
+  if(!currentUser || !currentUser.admin){ showToast('Nur Admins.'); return; }
+  const formId = uid('vform');
+  const modalInner = document.getElementById('modalInner');
+  modalInner.innerHTML = `
+    <h3>Voting erstellen</h3>
+    <label>Titel</label><input id="${formId}_title" />
+    <label>Option 1</label><input id="${formId}_o1" />
+    <label>Option 2</label><input id="${formId}_o2" />
+    <label>Option 3 (optional)</label><input id="${formId}_o3" />
+    <div style="margin-top:10px"><button onclick="saveVoting('${formId}')">Speichern</button></div>
+  `;
+  showModal();
+}
+function saveVoting(formId){
+  const t = document.getElementById(formId + '_title').value.trim();
+  const o1 = document.getElementById(formId + '_o1').value.trim();
+  const o2 = document.getElementById(formId + '_o2').value.trim();
+  const o3 = document.getElementById(formId + '_o3').value.trim();
+  if(!t || !o1 || !o2){ alert('Titel und mindestens 2 Optionen erforderlich'); return; }
+  const v = { id:uid('v'), title:t, options:[{id:uid('o'),text:o1,votes:0},{id:uid('o'),text:o2,votes:0}], createdAt:Date.now() };
+  if(o3) v.options.push({id:uid('o'),text:o3,votes:0});
+  votings.push(v); saveAll(); closeModal(); renderVotings();
+}
+function deleteVoting(id){
+  if(!confirm('Voting löschen?')) return;
+  votings = votings.filter(x=>x.id!==id); saveAll(); renderVotings();
+}
+
+/* ---------- ADMIN RENDER ---------- */
+function renderAdmin(){
+  const panel = document.getElementById('adminPanel');
+  if(!currentUser || !currentUser.admin){
+    panel.innerHTML = '<div class="muted">Bitte als Admin einloggen, um Firmen & Votings zu verwalten.</div>';
+    document.getElementById('adminQuick').style.display='none';
+    return;
+  }
+  document.getElementById('adminQuick').style.display='block';
+  let html = '<div style="display:flex;flex-direction:column;gap:8px">';
+  html += '<div><strong>Vorhandene Firmen</strong></div>';
+  companies.forEach(c=>{
+    html += `<div style="background:var(--panel);padding:10px;border-radius:8px;margin:6px 0;display:flex;justify-content:space-between;align-items:center">
+      <div><strong>${c.name}</strong><div class="muted">${c.category}</div></div>
+      <div style="display:flex;gap:6px">
+        <button onclick="editCompany('${c.id}')" style="padding:6px;border-radius:8px;border:0;cursor:pointer">Bearbeiten</button>
+        <button onclick="deleteCompany('${c.id}')" style="padding:6px;background:#b33;color:#fff;border-radius:8px;border:0;cursor:pointer">Löschen</button>
+      </div>
+    </div>`;
+  });
+  html += '<hr/><div><strong>Votings</strong></div>';
+  votings.forEach(v=>{
+    html += `<div style="background:var(--panel);padding:10px;border-radius:8px;margin:6px 0;display:flex;justify-content:space-between;align-items:center">
+      <div><strong>${v.title}</strong><div class="muted">${v.options.map(o=>o.text).join(' • ')}</div></div>
+      <div><button onclick="deleteVoting('${v.id}')" style="padding:6px;background:#b33;color:#fff;border-radius:8px;border:0;cursor:pointer">Löschen</button></div>
+    </div>`;
+  });
+  html += '</div>';
+  panel.innerHTML = html;
+}
+
+/* ---------- LOGIN / REGISTER ---------- */
+function showLogin(){ document.getElementById('loginBoxWrap').style.display='block'; openTab('start'); window.scrollTo({top:0,behavior:'smooth'}); }
+document.getElementById('showLoginBtn').onclick = showLogin;
+
+function register(){
+  const email = document.getElementById('emailInput').value.trim();
+  const pw    = document.getElementById('passwordInput').value;
+  if(!email||!pw){ alert('Email + Passwort eingeben'); return; }
+  // store users simple in localStorage (for prototype only)
+  const users = JSON.parse(localStorage.getItem('jp_users')||'[]');
+  if(users.find(u=>u.email===email)){ alert('Email bereits registriert'); return; }
+  users.push({ email, password: pw, admin:false });
+  localStorage.setItem('jp_users', JSON.stringify(users));
+  alert('Registrierung erfolgreich — nun bitte einloggen.');
+}
+
+function login(){
+  const email = document.getElementById('emailInput').value.trim();
+  const pw    = document.getElementById('passwordInput').value;
+  if(!email||!pw){ alert('Email + Passwort eingeben'); return; }
+  if(email===ADMIN_EMAIL && pw===ADMIN_PASS){
+    currentUser = { email, admin:true };
+  } else {
+    const users = JSON.parse(localStorage.getItem('jp_users')||'[]');
+    const u = users.find(x=>x.email===email && x.password===pw);
+    if(!u){ alert('Benutzer nicht gefunden oder falsches Passwort'); return; }
+    currentUser = { email:u.email, admin:false };
+  }
+  // hide login
+  document.getElementById('loginBoxWrap').style.display='none';
+  // replace auth area
+  document.getElementById('authArea').innerHTML = `<div style="display:flex;gap:8px;align-items:center"><div class="tiny">Eingeloggt als ${currentUser.email}${currentUser.admin?' (Admin)':''}</div><button onclick="logout()" style="padding:8px;border-radius:8px;border:0;cursor:pointer">Logout</button></div>`;
+  // show admin quick if admin
+  if(currentUser.admin) document.getElementById('adminQuick').style.display='block';
+  renderAll();
+  showToast('Erfolgreich eingeloggt');
+}
+function logout(){
+  currentUser = null;
+  document.getElementById('authArea').innerHTML = `<button class="btn" id="showLoginBtn" onclick="showLogin()">Login / Register</button>`;
+  document.getElementById('adminQuick').style.display='none';
+  renderAll();
+}
+
+/* ---------- MODAL UTIL ---------- */
+function showModal(){ document.getElementById('modalOverlay').style.display='flex'; }
+function closeModal(){ document.getElementById('modalOverlay').style.display='none'; }
+
+/* ---------- UTILS ---------- */
+function escapeHtml(s){ if(!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ---------- SEARCH ---------- */
+document.getElementById('searchBar').addEventListener('input', function(){
+  const term = this.value.trim().toLowerCase();
+  document.querySelectorAll('.company-card').forEach(card=>{
+    const txt = card.innerText.toLowerCase();
+    card.style.display = txt.includes(term) ? '' : 'none';
+  });
+});
+
+/* ---------- TABS ---------- */
+function openTab(id){
+  document.querySelectorAll('main section').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if(el) el.classList.add('active');
+}
+
+/* ---------- INIT ---------- */
+function init(){
+  ensureDemo();
+  loadAll();
+  renderAll();
+  // visitor counter
+  let v = parseInt(localStorage.getItem('jp_visitors')||'0',10); v++; localStorage.setItem('jp_visitors', v);
+  document.getElementById('visitorCounter').innerText = 'Besucher: ' + v;
+}
+init();
+
+/* ---------- LIVE VISITOR COUNTER ---------- */
+function updateVisitorCounter(){
+  let v = parseInt(localStorage.getItem('jp_visitors')||'0',10);
+  v++;
+  localStorage.setItem('jp_visitors', v);
+  document.getElementById('visitorCounter').innerText = 'Besucher: ' + v;
+}
+setInterval(updateVisitorCounter, 5000); // alle 5 Sekunden aktualisieren
+updateVisitorCounter();
+/* ---------- OPTIONAL: load data from external JSON (example) ---------- */
+/* function importFromJSON(json) { companies = json.companies || []; votings = json.votings || []; saveAll(); renderAll(); } */
+</script>
+
+<footer>
+  © 2025 JOBPiLOT | Alle Rechte vorbehalten
+</footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // Firmen werden nur im Speicher gehalten (demo), du kannst hier lokale Speicherung etc. ergänzen.
+  var firmen = [
+    {name:"Muster GmbH",desc:"IT-Dienstleister",addr:"Berlin",lat:52.515,lng:13.41},
+    {name:"Beispiel AG",desc:"Handwerk",addr:"Stuttgart",lat:48.77,lng:9.17}
+  ];
+  var map, addMode = 0, addMarker = null, suchbegriff = "", markerOnMap = [];
+
+  window.addEventListener("DOMContentLoaded",function(){
+    // Map initialisieren
+    map = L.map('map').setView([51,10],6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:19, attribution:'© OpenStreetMap'
+    }).addTo(map);
+    showMarkers();
+    map.on('click',function(e){
+      if(!addMode) return;
+      if(addMarker) map.removeLayer(addMarker);
+      addMarker = L.marker(e.latlng).addTo(map);
+      document.getElementById('flat').value = e.latlng.lat.toFixed(6);
+      document.getElementById('flng').value = e.latlng.lng.toFixed(6);
+    });
+    document.getElementById('mapsearch').oninput = function(){
+      suchbegriff = this.value.trim().toLowerCase();
+      showMarkers();
+    };
+  });
+
+  function startAddFirma(){
+    addMode=1;
+    document.getElementById('btnAddFirma').style.display='none';
+    document.getElementById('addForm').style.display='block';
+    document.getElementById('addNotice').style.display='block';
+  }
+  function cancelAdd(){
+    addMode=0;
+    document.getElementById('addForm').style.display='none';
+    document.getElementById('addNotice').style.display='none';
+    document.getElementById('btnAddFirma').style.display='inline-block';
+    if(addMarker){ map.removeLayer(addMarker); addMarker=null;}
+  }
+  function saveFirma(){
+    var name=document.getElementById('fname').value.trim();
+    var desc=document.getElementById('fdesc').value.trim();
+    var addr=document.getElementById('faddr').value.trim();
+    var lat=parseFloat(document.getElementById('flat').value);
+    var lng=parseFloat(document.getElementById('flng').value);
+    if(!name||!lat||!lng){alert("Bitte Name und Standort angeben.");return;}
+    firmen.push({name,desc,addr,lat,lng});
+    cancelAdd();
+    showMarkers();
+  }
+  function showMarkers(){
+    markerOnMap.forEach(m=>map.removeLayer(m)); markerOnMap=[];
+    firmen.forEach((f,i)=>{
+      if(suchbegriff && !(f.name+f.addr+f.desc).toLowerCase().includes(suchbegriff)) return;
+      let mk = L.marker([f.lat,f.lng]).addTo(map)
+        .bindPopup("<b>"+f.name+"</b><br>"+f.addr+"<br>"+f.desc+
+          "<br><button onclick='route("+f.lat+","+f.lng+")'>Route</button>");
+      markerOnMap.push(mk);
+    });
+    showList();
+  }
+  function showList(){
+    let out = "";
+    firmen.forEach((f,i)=>{
+      if(suchbegriff && !(f.name+f.addr+f.desc).toLowerCase().includes(suchbegriff)) return;
+      out += `<div class="card"><b>${f.name}</b> (${f.addr})<br>${f.desc}
+        <br><small>[Breite: ${f.lat}, Länge: ${f.lng}]</small>
+        <br><button onclick="route(${f.lat},${f.lng})" style="font-size:0.96em;">Route anzeigen</button></div>`;
+    });
+    document.getElementById('firmenliste').innerHTML = out || `<span style="color:#c44">Keine Firmen gefunden.</span>`;
+  }
+  function route(lat,lng){
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(function(pos){
+        let slat=pos.coords.latitude, slng=pos.coords.longitude;
+        let url =
+         `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${slat},${slng};${lat},${lng}`;
+        window.open(url,'_blank');
+      },()=>alert('Standort konnte nicht bestimmt werden.'));
+    }else{ alert("Standortfreigabe nicht verfügbar."); }
+  }
+</script>
+</body>
+</html>
